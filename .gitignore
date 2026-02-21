@@ -1,0 +1,27 @@
+# Input and output files — contain video content, not for version control
+subtitle_fixer/Input/*
+subtitle_fixer/Output/*
+chapter_generator/Input/*
+chapter_generator/Output/*
+
+# Keep the directories themselves
+!subtitle_fixer/Input/.gitkeep
+!subtitle_fixer/Output/.gitkeep
+!chapter_generator/Input/.gitkeep
+!chapter_generator/Output/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
