@@ -12,6 +12,7 @@ Requirements:
     export ANTHROPIC_API_KEY=your_key_here
 """
 
+import re
 import sys
 import os
 import anthropic
@@ -127,6 +128,13 @@ def get_overlap(fixed_text: str) -> str:
     return paragraphs[-1] if paragraphs else ""
 
 
+def clean_output(text: str) -> str:
+    """Strip trailing whitespace from every line and collapse runs of 3+ newlines."""
+    lines = [line.rstrip() for line in text.split("\n")]
+    cleaned = "\n".join(lines)
+    return re.sub(r"\n{3,}", "\n\n", cleaned)
+
+
 def fix_chunk(client: anthropic.Anthropic, chunk: str, prev_fixed: str | None) -> str:
     if prev_fixed:
         user_content = (
@@ -144,7 +152,7 @@ def fix_chunk(client: anthropic.Anthropic, chunk: str, prev_fixed: str | None) -
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
     )
-    return response.content[0].text.strip()
+    return clean_output(response.content[0].text.strip())
 
 
 def default_output_path(input_path: str) -> str:
@@ -185,7 +193,17 @@ def main():
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(output)
 
-    print(f"\nDone. Written to: {output_path}")
+    # YouTube-ready version: collapse blank lines so YouTube doesn't render
+    # each blank line as an empty subtitle frame during active speech.
+    stem, ext = os.path.splitext(output_path)
+    youtube_path = f"{stem}_youtube{ext}"
+    youtube_output = output.replace("\n\n", "\n")
+    with open(youtube_path, "w", encoding="utf-8") as f:
+        f.write(youtube_output)
+
+    print(f"\nDone.")
+    print(f"  Review copy : {output_path}")
+    print(f"  YouTube copy: {youtube_path}")
 
 
 if __name__ == "__main__":
