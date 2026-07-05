@@ -147,12 +147,19 @@ def fix_chunk(client: anthropic.Anthropic, chunk: str, prev_fixed: str | None) -
         user_content = chunk
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5",
         max_tokens=2048,
+        thinking={"type": "disabled"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
     )
-    return clean_output(response.content[0].text.strip())
+    text = next((block.text for block in response.content if block.type == "text"), None)
+    if text is None:
+        raise RuntimeError(
+            f"No text block in response (stop_reason={response.stop_reason!r}, "
+            f"block_types={[b.type for b in response.content]})"
+        )
+    return clean_output(text.strip())
 
 
 def default_output_path(input_path: str) -> str:

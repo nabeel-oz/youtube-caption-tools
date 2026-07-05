@@ -52,12 +52,18 @@ SEO_TERMS = ""
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-MODEL = "claude-sonnet-4-6"
-PASS1_MAX_TOKENS = 300
-PASS2_MAX_TOKENS = 40
+MODEL = "claude-sonnet-5"
+PASS1_MAX_TOKENS = 1500
+PASS2_MAX_TOKENS = 500
 DEFAULT_MIN_CHAPTER_MINS = 2
 DEFAULT_WORDS_PER_CHUNK = 450
 OVERLAP_WORDS = 50
+
+# Both passes require genuine judgment (spotting a real topic pivot vs. a
+# continuation; picking the most memorable phrase for a title), so adaptive
+# thinking is left on rather than disabled as in subtitle_fixer.
+THINKING_CONFIG = {"type": "adaptive"}
+OUTPUT_CONFIG = {"effort": "medium"}
 
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
@@ -130,6 +136,17 @@ PASS2_SYSTEM = _build_pass2_system()
 class Caption:
     start_secs: float
     text: str
+
+
+def _extract_text(response: anthropic.types.Message) -> str:
+    """Pull the text block out of a response, tolerating leading thinking blocks."""
+    text = next((b.text for b in response.content if b.type == "text"), None)
+    if text is None:
+        raise RuntimeError(
+            f"No text block in response (stop_reason={response.stop_reason!r}, "
+            f"block_types={[b.type for b in response.content]})"
+        )
+    return text
 
 
 # ── Parsing ───────────────────────────────────────────────────────────────────
@@ -269,10 +286,12 @@ def detect_boundaries(
         response = client.messages.create(
             model=MODEL,
             max_tokens=PASS1_MAX_TOKENS,
+            thinking=THINKING_CONFIG,
+            output_config=OUTPUT_CONFIG,
             system=PASS1_SYSTEM,
             messages=[{"role": "user", "content": chunk}],
         )
-        raw = response.content[0].text.strip()
+        raw = _extract_text(response).strip()
         m = re.search(r"\[.*?\]", raw, re.DOTALL)
         if not m:
             continue
@@ -350,10 +369,12 @@ def generate_title(client: anthropic.Anthropic, segment_text: str) -> str:
     response = client.messages.create(
         model=MODEL,
         max_tokens=PASS2_MAX_TOKENS,
+        thinking=THINKING_CONFIG,
+        output_config=OUTPUT_CONFIG,
         system=PASS2_SYSTEM,
         messages=[{"role": "user", "content": segment_text}],
     )
-    return response.content[0].text.strip()
+    return _extract_text(response).strip()
 
 
 # ── Output formatting ─────────────────────────────────────────────────────────
